@@ -1,13 +1,21 @@
+/*
+ * Copyright (c) 2017 Brian Barto
+ * 
+ * This program is free software; you can redistribute it and/or modify it
+ * under the terms of the GPL License. See LICENSE for more details.
+ */
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <sys/ioctl.h>
-#include "nms.h"
+#include "nmseffect.h"
 
 int main(void) {
 	int termCols, spaces = 0;
 	char input;
-	char display[2000];
+	char r_opts[8];
+	char *display        = NULL;
 	char *head1Left      = "DATANET PROC RECORD:  45-3456-W-3452";
 	char *head1Right     = "Transnet on/xc-3";
 	char *head2Center    = "FEDERAL RESERVE TRANSFER NODE";
@@ -22,12 +30,18 @@ int main(void) {
 	char *menu6          = "[6] Remote Operator Logon/Logoff";
 	char *foot1Center    = "================================================================";
 	char *foot2Center    = "[ ] Select Option or ESC to Abort";
-	NmsArgs args = INIT_NMSARGS;
 
 	// Get terminal dimentions (needed for centering)
 	struct winsize w;
 	ioctl(0, TIOCGWINSZ, &w);
 	termCols = w.ws_col;
+
+	// Allocate space for our display string
+	if ((display = malloc(20 * termCols)) == NULL)
+	{
+		fprintf(stderr, "Memory Allocation Error. Quitting!\n");
+		return 1;
+	}
 
 	// Start building the display string
 	strcpy(display, head1Left);
@@ -152,38 +166,29 @@ int main(void) {
 	}
 	strcat(display, foot2Center);
 
-	// Set needed args
-	args.src = display;
-	args.return_opts = "123456";
-	args.input_cursor_y = 18;
-	args.input_cursor_x = ((termCols - strlen(foot2Center)) / 2) + 1;
+	// Settings
+	nmseffect_set_input_position(((termCols - strlen(foot2Center)) / 2) + 2, 18);
+	r_opts[0] = 49;
+	r_opts[1] = 50;
+	r_opts[2] = 51;
+	r_opts[3] = 52;
+	r_opts[4] = 53;
+	r_opts[5] = 54;
+	r_opts[6] = 27;
+	r_opts[7] = 0;
+	nmseffect_set_returnopts(r_opts);
+	nmseffect_set_clearscr(1);
 
-	// Display characters
-	input = nms_exec(&args);
+	// Execute effect
+	input = nmseffect_exec(display);
+	
+	// Print user choice
+	if (input == 27)
+		printf("Aborted!\n");
+	else 
+		printf("You chose %c\n", input);
 
-	switch (input) {
-		case '1':
-			printf("User chose 1\n");
-			break;
-		case '2':
-			printf("User chose 2\n");
-			break;
-		case '3':
-			printf("User chose 3\n");
-			break;
-		case '4':
-			printf("User chose 4\n");
-			break;
-		case '5':
-			printf("User chose 5\n");
-			break;
-		case '6':
-			printf("User chose 6\n");
-			break;
-		default:
-			printf("Unrecognized selection: %c\n", input);
-			break;
-	}
+	free(display);
 
 	return 0;
 }
